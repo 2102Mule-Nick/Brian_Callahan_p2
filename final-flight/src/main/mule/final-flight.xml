@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<db:config name="PostgresDatabase" doc:name="Database Config" doc:id="30817d00-b0a3-4b43-bd7b-d3f4e83b7572" >
+		<db:generic-connection url="jdbc:postgresql://localhost:5432/postgres" user="postgres" driverClassName="org.postgresql.Driver" password="password"/>
+	</db:config>
+	<flow name="getFlightsFinal" doc:id="475f1aba-faa3-4354-a933-b7d42950395c" >
+		<db:select doc:name="Select" doc:id="004e80e7-b292-49f3-a429-5fb089593970" config-ref="PostgresDatabase">
+			<db:sql ><![CDATA[select * from flights]]></db:sql>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="3203ff80-4713-4d29-af17-6092b5c64e15" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload map ( payload01 , indexOfPayload01 ) -> {
+	ID: payload01.id,
+	code: payload01.code,
+	price: payload01.price default 0,
+	departureDate: payload01.departuredate as String default "",
+	origin: payload01.origin default "",
+	destination: payload01.destination default "",
+	emptySeats: payload01.emptyseats default 0,
+	plane: {
+		"type": payload01.planetype default "",
+		totalSeats: payload01.planetotalseats default 0
+	}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="createFlightFinal" doc:id="096c8cce-69fc-4e51-877d-c2dc1ead2290" >
+		<db:insert doc:name="Insert" doc:id="b7545cfc-67ea-495d-ba48-bd9b7a3441df" config-ref="PostgresDatabase">
+			<db:sql ><![CDATA[INSERT INTO flights(id,code,price,departureDate,origin,destination,emptySeats,planetype,planetotalSeats) VALUES (:id,:code,:price,:departureDate,:origin,:destination,:emptySeats,:planetype,:planetotalSeats);]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{
+
+	'id': payload.ID,
+	'code': payload.code,
+	'price': payload.price,
+	'departureDate': payload.departureDate,
+	'origin': payload.origin,
+	'destination': payload.destination,
+	'emptySeats': payload.emptySeats,
+	'planetype': payload.planetype,
+	'planetotalSeats': payload.planetotalSeats
+	
+}]]]></db:input-parameters>
+		</db:insert>
+		<set-payload value="Flight created" doc:name="Set Payload" doc:id="65a65533-d668-4f85-bb4a-ab1aafd6c561" />
+	</flow>
+	<flow name="getFlightsByIDFinal" doc:id="7799ecb5-f4c3-4330-9f9e-bda1108f2201" >
+		<db:select doc:name="Select" doc:id="39fd9ca4-450f-4010-b1d3-f90cc7e12d5b" config-ref="PostgresDatabase">
+			<db:sql ><![CDATA[select * from flights where id = :ID
+]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{'ID': attributes.uriParams.ID}]]]></db:input-parameters>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="62c5537a-e152-4884-81f5-a740003bed74" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload map ( payload01 , indexOfPayload01 ) -> {
+	ID: payload01.id,
+	code: payload01.code,
+	price: payload01.price default 0,
+	departureDate: payload01.departuredate as String default "",
+	origin: payload01.origin default "",
+	destination: payload01.destination default "",
+	emptySeats: payload01.emptyseats default 0,
+	plane: {
+		"type": payload01.planetype default "",
+		totalSeats: payload01.planetotalseats default 0
+	}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="deleteFlightsByIDFinal" doc:id="6dcedc65-4808-4f69-aaba-b0725a2050b9" >
+		<db:delete doc:name="Delete" doc:id="221ad0b0-615e-434b-87a8-9600bda4a025" config-ref="PostgresDatabase">
+			<db:sql ><![CDATA[delete from flights where id = :ID]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{'ID': attributes.uriParams.ID}]]]></db:input-parameters>
+		</db:delete>
+		<set-payload value="Flight has been deleted" doc:name="Set Payload" doc:id="f1adee22-58cf-47ef-ad18-9769ac97ff0d" />
+	</flow>
+	<flow name="putFlightsByIdFinal" doc:id="2cf4f944-0ccc-4f3d-b0d4-93b63528ab9d" >
+		<db:update doc:name="Update" doc:id="16455bb4-9d2d-4029-9fca-5373d8b014a0" >
+			<db:sql ><![CDATA[UPDATE flights
+SET code=:code ,price=:price ,departureDate=:departureDate ,origin=:origin ,destination=: destination ,emptySeats=:emptySeats ,planetype=:planetype ,planetotalseats=:planetotalSeats
+WHERE ID = :id;
+ ]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	'id': payload.ID,
+	'code': payload.code,
+	'price': payload.price,
+	'departureDate': payload.departureDate,
+	'origin': payload.origin,
+	'destination': payload.destination,
+	'emptySeats': payload.emptySeats,
+	'planetype': payload.planetype,
+	'planetotalSeats': payload.planetotalSeats
+	
+}]]]></db:input-parameters>
+		</db:update>
+		<set-payload value="flight updated." doc:name="Set Payload" doc:id="aff777cf-39f2-4782-aca4-2ba69c522710" />
+	</flow>
+</mule>
